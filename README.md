@@ -1,5 +1,5 @@
 ## Custom additions: 
-- bnb nf4 quantization instead of torchao uint4
+- swapped bnb nf4 quantization instead of torchao uint4
 
 # AI Toolkit by Ostris
 
