@@ -483,7 +483,7 @@ export const quantizationOptions: SelectOption[] = [
   { value: 'uint7', label: '7 bit' },
   { value: 'uint6', label: '6 bit' },
   { value: 'uint5', label: '5 bit' },
-  { value: 'uint4', label: '4 bit' },
+  { value: 'uint4', label: 'nf4' },
   { value: 'uint3', label: '3 bit' },
   { value: 'uint2', label: '2 bit' },
 ];
