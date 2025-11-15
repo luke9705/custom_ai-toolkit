@@ -1,3 +1,6 @@
+# Custom additions: 
+- bnb nf4 quantization instead of torchao uint4
+
 # AI Toolkit by Ostris
 
 AI Toolkit is an all in one training suite for diffusion models. I try to support all the latest models on consumer grade hardware. Image and video models. It can be run as a GUI or CLI. It is designed to be easy to use but still have every feature imaginable.
