@@ -30,6 +30,7 @@ LINEAR_MODULES = [
     'Linear',
     'LoRACompatibleLinear',
     'QLinear',
+    'Linear4bit',  # bitsandbytes nf4 quantized layers
     # 'GroupNorm',
 ]
 CONV_MODULES = [

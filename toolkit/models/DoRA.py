@@ -16,7 +16,8 @@ if TYPE_CHECKING:
 # diffusers specific stuff
 LINEAR_MODULES = [
     'Linear',
-    'LoRACompatibleLinear'
+    'LoRACompatibleLinear',
+    'Linear4bit',  # bitsandbytes nf4 quantized layers
     # 'GroupNorm',
 ]
 CONV_MODULES = [

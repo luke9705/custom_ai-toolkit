@@ -22,7 +22,8 @@ ExtractMode = Union[
 
 LINEAR_MODULES = [
     'Linear',
-    'LoRACompatibleLinear'
+    'LoRACompatibleLinear',
+    'Linear4bit',  # bitsandbytes nf4 quantized layers
 ]
 CONV_MODULES = [
     # 'Conv2d',

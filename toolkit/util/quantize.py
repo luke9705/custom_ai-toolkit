@@ -13,6 +13,7 @@ from optimum.quanto import freeze
 from tqdm import tqdm
 from safetensors.torch import load_file
 from huggingface_hub import hf_hub_download
+import bitsandbytes as bnb
 
 from toolkit.print import print_acc
 import os
@@ -36,7 +37,7 @@ torchao_qtypes = {
     # "int4": Int4WeightOnlyConfig(),
     "uint2": UIntXWeightOnlyConfig(torch.uint2),
     "uint3": UIntXWeightOnlyConfig(torch.uint3),
-    "uint4": UIntXWeightOnlyConfig(torch.uint4),
+    # "uint4": UIntXWeightOnlyConfig(torch.uint4),  # Swapped with bnb nf4
     "uint5": UIntXWeightOnlyConfig(torch.uint5),
     "uint6": UIntXWeightOnlyConfig(torch.uint6),
     "uint7": UIntXWeightOnlyConfig(torch.uint7),
@@ -51,7 +52,18 @@ class aotype:
         self.config = torchao_qtypes[name]
 
 
+class bnbtype:
+    """Wrapper for bitsandbytes nf4 quantization"""
+    def __init__(self, name: str = "nf4"):
+        self.name = name
+        self.quant_type = "nf4"
+        self.compute_dtype = torch.bfloat16
+
+
 def get_qtype(qtype: Union[str, qtype]) -> qtype:
+    # Handle uint4 -> bnb nf4 mapping (keeping key for UI compatibility)
+    if qtype == "uint4":
+        return bnbtype("nf4")
     if qtype in torchao_qtypes:
         return aotype(qtype)
     if isinstance(qtype, str):
@@ -60,9 +72,46 @@ def get_qtype(qtype: Union[str, qtype]) -> qtype:
         return qtype
 
 
+def _quantize_bnb_nf4(parent_module: torch.nn.Module, name: str, module: torch.nn.Module, bnb_config: "bnbtype"):
+    """Replace Linear layers with bitsandbytes nf4 quantized layers"""
+    if isinstance(module, torch.nn.Linear):
+        print_acc(f"Quantizing {name} with bitsandbytes nf4")
+
+        # Get the parent and attribute name to replace the module
+        if '.' in name:
+            parent_name = name.rsplit('.', 1)[0]
+            attr_name = name.rsplit('.', 1)[1]
+            parent = parent_module
+            for part in parent_name.split('.'):
+                parent = getattr(parent, part)
+        else:
+            parent = parent_module
+            attr_name = name
+
+        # Create bitsandbytes nf4 quantized linear layer
+        bnb_linear = bnb.nn.Linear4bit(
+            module.in_features,
+            module.out_features,
+            bias=module.bias is not None,
+            compute_dtype=bnb_config.compute_dtype,
+            quant_type=bnb_config.quant_type,
+        )
+
+        # Copy weights and bias
+        device = module.weight.device
+
+        with torch.no_grad():
+            bnb_linear.weight.data = module.weight.data.to(device)
+            if module.bias is not None:
+                bnb_linear.bias.data = module.bias.data.to(device)
+
+        # Replace the module
+        setattr(parent, attr_name, bnb_linear)
+
+
 def quantize(
     model: torch.nn.Module,
-    weights: Optional[Union[str, qtype, aotype]] = None,
+    weights: Optional[Union[str, qtype, aotype, bnbtype]] = None,
     activations: Optional[Union[str, qtype]] = None,
     optimizer: Optional[Optimizer] = None,
     include: Optional[Union[str, List[str]]] = None,
@@ -110,7 +159,10 @@ def quantize(
             if m.__class__.__name__ in Q_MODULES:
                 continue
             else:
-                if isinstance(weights, aotype):
+                if isinstance(weights, bnbtype):
+                    # Replace Linear layers with bitsandbytes nf4 quantized layers
+                    _quantize_bnb_nf4(model, name, m, weights)
+                elif isinstance(weights, aotype):
                     torchao_quantize_(m, weights.config)
                 else:
                     _quantize_submodule(
